@@ -1,0 +1,273 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>Práctica 3</title>
+    <meta charset="utf-8">
+    <script src="//cdn.jsdelivr.net/phaser/2.2.2/phaser.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-game"></div>
+    <script type="text/javascript">
+    var game = new Phaser.Game(640, 480, Phaser.CANVAS, 'canvas-game');
+    var PhaserGame = function () {
+        /* Para crear a Mario. */
+        this.player = null;
+        /* Para crear conjuntos de misiles. */
+        this.platforms = null;
+        /* Para crear conjuntos de goombas. */
+        this.goombas = null;
+        /* Para configurar el cielo. */
+        this.sky = null;
+        /* Para reorientar a Mario. */
+        this.facing = 'left';
+        /* Para reorientar los goombas. */
+        this.facing2 = 'left';
+        this.edgeTimer = 0;
+        this.jumpTimer = 0;
+        this.wasStanding = false;
+        this.cursors = null;
+    };
+
+    PhaserGame.prototype = {
+
+        init: function () {
+            this.game.renderer.renderSession.roundPixels = true;
+            this.world.resize(2000, 480);
+            this.physics.startSystem(Phaser.Physics.ARCADE);
+            this.physics.arcade.gravity.y = 750;
+            this.physics.arcade.skipQuadTree = false;
+        },
+
+        /**
+         * Cargamos los sprites necesarios.
+         */
+        preload: function () {
+            this.load.crossOrigin = 'anonymous';
+            this.load.image('block', 'assets/block.png');
+            this.load.image('brush', 'assets/brush.png');
+            this.load.image('brush2', 'assets/brush2.png');
+            this.load.image('floor', 'assets/floor.png');
+            this.load.image('clouds', 'assets/clouds1.png');
+            this.load.image('misil', 'assets/misil1.png');
+            this.load.image('castillo', 'assets/castillo.png');
+            this.load.spritesheet('dude', 'assets/mario.png', 16, 27);
+            this.load.spritesheet('enemigo', 'assets/goomba.png', 16, 16);
+        },
+
+        /**
+         * Agregamos todos los componentes al nivel.
+         */
+        create: function () {
+            this.stage.backgroundColor = '#2f9acc';
+            this.sky = this.add.tileSprite(0, 0, 640, 480, 'clouds'); // nubes
+            this.sky.fixedToCamera = true; // la el cielo se mueve con la cámara
+            /* Agregamos el paisaje. */
+            for (var i = 0; i < 1000; i = i + 100)
+            {
+            	var r = this.rnd.between(1, 5);
+            	this.add.sprite(i*r, 401, 'brush2');
+            	r = this.rnd.between(1, 5);
+            	this.add.sprite(i*5, 449, 'brush');
+            	
+            }
+            /* Agregamos el castillo final. */
+            this.add.sprite(1800, 290, 'castillo');
+            /* A partir de aquí las imagenes tienen colisiones. */
+            this.platforms = this.add.physicsGroup();
+            /* Agregamos el piso. y los bloques */
+            for (var i = 0; i < 2000; i = i + 135)
+            {
+            	var y = this.rnd.between(300, 400);
+            	this.platforms.create(i, 465, 'floor');
+            	if (i < 1800 && i % 7 == 0 && i != 0)
+            	{
+            		this.platforms.create(i,y, 'block');
+            		this.platforms.create(i+30, y, 'block');
+            	}
+            	y = this.rnd.between(300, 400);
+            	if (i < 1800 && i % 4 == 0 && i != 0)
+            	{
+            		this.platforms.create(i,y, 'block');
+            		this.platforms.create(i+30, y, 'block');
+            		this.platforms.create(i+60, y, 'block');
+            	}
+            	y = this.rnd.between(300, 400);
+            	if (i < 1800 && i % 11 == 0 % i != 0)
+            	{
+            		this.platforms.create(i, y, 'block');
+            	}
+
+            }
+            /* Agregamos los enemigos. */
+            var x = 0;
+            var y = 64;
+            for (var i = 0; i < 30; i++)
+            {
+                var platform = this.platforms.create(x, y, 'misil');
+                platform.body.velocity.x = this.rnd.between(100, 150);
+                platform.body.velocity.x *= -1; // inverso
+                x += 200;
+                if (x >= 1900)
+                {
+                    x = 0;
+                }
+                y+= 104;
+            }
+            /* Agregamos los goombas. */
+            this.goombas = this.add.physicsGroup();
+            for (var i = 0; i < 5; i++)
+            {
+                var x = this.rnd.between(0, 1900);
+                var goomba = this.goombas.create(x, 450, 'enemigo');
+                goomba.animations.add('move', [0, 1]);
+                goomba.animations.add('dead', [2]);
+                goomba.body.velocity.x = 1;
+                goomba.play('move',1);
+                x += 200;
+                if (x >= 1900)
+                {
+                    x = 0;
+                }
+            }
+            this.platforms.setAll('body.allowGravity', false);
+            this.platforms.setAll('body.immovable', true);
+            this.goombas.setAll('body.allowGravity', false);
+            this.goombas.setAll('body.immovable', true);
+            this.player = this.add.sprite(0, 430, 'dude');
+            this.physics.arcade.enable(this.player);
+            this.player.body.collideWorldBounds = true;
+            this.player.body.setSize(16, 27, 0, 0);
+            this.player.animations.add('left', [3, 4, 5], 10, true);
+            this.player.animations.add('right', [8, 9, 10], 10, true);
+            this.camera.follow(this.player);
+            this.cursors = this.input.keyboard.createCursorKeys();
+        },
+
+        /* Para que los misiles se ciclen. */
+        wrapPlatform: function (platform) {
+            if (platform.body.velocity.x < 0 && platform.x <= -160)
+            {
+            	platform.x = 2000;
+            }
+            else if (platform.body.velocity.x > 0 && platform.x >= 2000)
+            {
+            	platform.x = -160;
+            }
+        },
+
+        /* Para que los goombas se regresen. */
+        mueveGoomba: function(goomba) {
+        	if (goomba.x >= 1990)
+        	{
+        		this.facing2 = 'left';
+        	}
+        	if (goomba.x <= 0)
+        	{
+        		this.facing2 = 'right';
+        	}
+        	if (this.facing2 == 'left')
+        	{
+        		goomba.x -= 1;
+                goomba.play('move', 1);
+        	}
+        	else if (this.facing2 == 'right'){
+        		goomba.x += 1;
+                goomba.play('move', 1);
+        	}
+        },
+
+        /* Colisión con los goombas. */
+        muereGoomba: function(player, goomba) {
+        	if (goomba.x-10 > player.x) {
+        		player.kill();
+        	}
+            else if (goomba.x+10 <= player.x) {
+                player.kill();
+            }
+            else if (goomba.y-10 > player.y) {
+                goomba.play('dead', 1);
+                goomba.kill();
+            }
+        },
+
+        /**
+         * Colisión con los misiles.
+         */
+        muere: function (player, platform) {
+            if (platform.key === 'misil' && platform.x-10 > player.x) // si está de frente
+            {
+            	this.player.kill();
+            }
+        },
+
+        /**
+         * Actualización.
+         */
+        update: function () {
+            if (this.player.x > 1900) // si llegó al final
+            {
+                this.player.kill();
+            }
+        	this.goombas.forEach(this.mueveGoomba, this);
+            this.sky.tilePosition.y = -(this.camera.y * 0.7);
+            this.platforms.forEach(this.wrapPlatform, this);
+            this.physics.arcade.collide(this.player, this.platforms, this.muere, null, this);
+            this.physics.arcade.collide(this.player, this.goombas, this.muereGoomba, null, this);
+            var standing = this.player.body.blocked.down || this.player.body.touching.down;
+            this.player.body.velocity.x = 0;
+            if (this.cursors.left.isDown)
+            {
+                this.player.body.velocity.x = -200;
+                if (this.facing != 'left')
+                {
+                    this.player.play('left');
+                    this.facing = 'left';
+                }
+            }
+            else if (this.cursors.right.isDown)
+            {
+                this.player.body.velocity.x = 200;
+                if (this.facing !== 'right')
+                {
+                    this.player.play('right');
+                    this.facing = 'right';
+                }
+            }
+            else
+            {
+                if (this.facing !== 'idle')
+                {
+                    this.player.animations.stop();
+
+                    if (this.facing === 'left')
+                    {
+                        this.player.frame = 3;
+                    }
+                    else
+                    {
+                        this.player.frame = 10;
+                    }
+                    this.facing = 'idle';
+                }
+            }
+            if (!standing && this.wasStanding)
+            {
+                this.edgeTimer = this.time.time + 250;
+            }
+            if ((standing || this.time.time <= this.edgeTimer) && this.cursors.up.isDown && this.time.time > this.jumpTimer)
+            {
+                this.player.body.velocity.y = -500;
+                this.jumpTimer = this.time.time + 750;
+            }
+
+            this.wasStanding = standing;
+
+        }
+
+    };
+    game.state.add('Game', PhaserGame, true);
+
+    </script>
+</body>
+</html>

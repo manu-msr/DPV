@@ -1,0 +1,46 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="UTF-8" />
+	<title>Leetris - Prototipo</title>
+	<script src="phaser.min.js"></script>
+	<script src="load.js"></script>
+	<script src="mainmenu.js"></script>
+	<script src="block.js"></script>
+	<script src="game.js"></script>
+</head>
+<body style:"margin:0px auto;">
+
+<div id="gameContainer" style:"margin:0px auto;"></div>
+
+<script type="text/javascript">
+
+window.onload = function() {
+
+var gamevar = new Phaser.Game(window.innerWidth * window.devicePixelRatio, window.innerHeight * window.devicePixelRatio, Phaser.CANVAS,'gameContainer');
+
+gamevar.state.add('Load',Game.Load);
+
+gamevar.state.add('MainMenu',Game.MainMenu);
+
+gamevar.state.add('Game',Game.PlayGame);
+
+gamevar.state.add('Mapa',Game.MapScreen);
+
+gamevar.state.add('PrimerNivel',Game.PrimerNivel);
+
+
+gamevar.state.add('Lose',Game.LoseScreen);
+
+gamevar.state.add('Win',Game.WinScreen);
+
+gamevar.state.start('Load');
+
+
+
+};
+
+</script>
+
+</body>
+</html>
