@@ -12,6 +12,7 @@ var siguiente = true;
 var oldsquares = new Array();
 var timer;
 var me  = this;
+var tiempoextra = 0;
 
 var squaresinrow = new Array();
 
@@ -466,7 +467,7 @@ var aux = force_down_max_time;
     
     var me = this;
     me.startTime = new Date();
-    me.totalTime = 5;
+    me.totalTime = 50;
     me.timeElapsed = 0;
  
     me.createTimer();
@@ -594,8 +595,23 @@ var aux = force_down_max_time;
     //Time elapsed in seconds
     me.timeElapsed = Math.abs(timeDifference / 1000);
  
+
+   var timeRemaining = me.totalTime - me.timeElapsed; 
+
     //Time remaining in seconds
-    var timeRemaining = me.totalTime - me.timeElapsed; 
+    if (tiempoextra != 0) {
+  me.totalTime += tiempoextra;
+  tiempoextra = 0;
+}
+    if (timeRemaining <= 0) {
+
+        me.timeLabel.text = "00:00";
+
+         this.game.state.start('Lose');
+
+    }
+
+
  
     //Convert seconds into minutes and seconds
     var minutes = Math.floor(timeRemaining / 60);
@@ -715,6 +731,8 @@ var aux = force_down_max_time;
                 console.log(score);
 
                 score+=100;
+                tiempoextra= 10;
+
 
                 for(var j=0;j<oldsquares.length;j++){
 
